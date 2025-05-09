@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="app-container">
+    <!-- Шапка приложения -->
+    <header class="app-header">
+        <h1>MakarTXT</h1>
+        <div class="header-buttons">
+            <button id="history-btn" class="header-btn">История</button>
+            <button id="files-btn" class="header-btn active">Файлы</button>
+        </div>
+    </header>
+
+    <!-- Основное содержимое -->
+    <main class="content-area">
+        <!-- Блок сообщений -->
+        <div id="history-panel" class="panel">
+            <div class="messages-container" id="messages-container">
+                {% for msg in messages %}
+                <div class="message {% if msg.type == 'text' %}user{% endif %}">
+                    {% if msg.type == 'text' %}
+                        <div class="message-content">{{ msg.content }}</div>
+                    {% else %}
+                        <div class="file-item">
+                            <span class="file-icon">📄</span>
+                            <div class="file-info">
+                                <div class="file-name">{{ msg.filename }}</div>
+                                <div class="file-meta">
+                                    <span>{{ msg.time }}</span>
+                                    <span class="file-size">{{ (msg.size/1024)|round(2) }} KB</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <span class="message-time">{{ msg.time }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Блок файлов -->
+        <div id="files-panel" class="panel hidden">
+            <div class="file-actions">
+                <button id="refresh-files" class="action-btn">Обновить</button>
+                <input type="file" id="file-input" multiple style="display: none;">
+                <button id="upload-btn" class="action-btn">Загрузить</button>
+            </div>
+            <div class="files-list" id="files-list">
+                <!-- Файлы будут добавляться динамически -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Нижняя панель ввода -->
+    <footer class="input-area">
+        <div class="input-area">
+            <div class="input-container">
+                <textarea 
+                    id="message-input"
+                    class="text-input"
+                    placeholder="Введите сообщение..."
+                    rows="1"></textarea>
+                <button id="send-btn" class="btn btn-primary">
+                    <span class="send-icon">➤</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div id="confirm-modal" class="modal hidden">
+        <div class="modal-content">
+            <p>Вы уверены, что хотите удалить этот файл?</p>
+            <div class="modal-buttons">
+                <button id="confirm-delete">Да</button>
+                <button id="cancel-delete">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Панель дополнительных действий -->
+    <div class="actions-panel hidden" id="actions-panel">
+        <div class="form-group">
+            <label for="file-input" class="btn btn-block file-upload-btn">
+                📁 Загрузить файл
+            </label>
+        </div>
+        
+        <div class="form-group youtube-group">
+            <input type="text" 
+                   id="youtube-url" 
+                   class="form-control" 
+                   placeholder="Ссылка на YouTube">
+            <button id="youtube-download" class="btn btn-block youtube-btn">
+                🎬 Скачать видео
+            </button>
+        </div>
+    </div>
+
+    <!-- Кнопка меню -->
+    <button id="menu-button" class="menu-button">⋮</button>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Управление панелью действий
+    const menuButton = document.getElementById('menu-button');
+    const actionsPanel = document.getElementById('actions-panel');
+    
+    if (menuButton && actionsPanel) {
+        menuButton.addEventListener('click', function() {
+            actionsPanel.classList.toggle('hidden');
+        });
+    }
+
+    // Адаптация высоты текстового поля
+    const textInput = document.getElementById('message-input');
+    if (textInput) {
+        textInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+    }
+});
+</script>
+{% endblock %}

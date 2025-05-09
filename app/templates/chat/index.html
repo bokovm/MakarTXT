@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}MakarTXT - Текстовый менеджер{% endblock %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<div class="app-container">
+    <header class="main-header">
+        <div class="header-brand">
+            <img src="{{ url_for('static', filename='chat/img/logo.jpg') }}" 
+                 class="logo" 
+                 alt="MakarTXT"
+                 width="40"
+                 height="40">
+            <h1 class="app-title">Текстовый менеджер</h1>
+        </div>
+    </header>
+
+    <!-- Основной контент -->
+    <div class="main-grid">
+        <!-- Текстовый редактор -->
+        <section class="text-section">
+            <div class="text-editor">
+                <textarea 
+                    id="message-input"
+                    class="modern-textarea"
+                    placeholder="Введите ваш текст здесь..."
+                    rows="8"></textarea>
+                <div class="editor-actions">
+                    <button id="send-btn" class="action-btn primary">
+                        <i class="icon-save"></i>
+                        <span>Сохранить</span>
+                    </button>
+                    <button id="show-history" class="action-btn secondary">
+                        <i class="icon-history"></i>
+                        <span>История</span>
+                    </button>
+                    <button id="upload-btn" class="action-btn accent">
+                        <i class="icon-upload"></i>
+                        <span>Файлы</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- YouTube секция -->
+        <section class="youtube-section">
+            <div class="yt-container">
+                <input 
+                    type="text" 
+                    id="youtube-url" 
+                    class="yt-input"
+                    placeholder="https://youtu.be/...">
+                <button id="youtube-download" class="action-btn danger">
+                    <i class="icon-youtube"></i>
+                    <span>Скачать</span>
+                </button>
+                
+                <!-- Прогресс-бар -->
+                <div id="download-progress" class="hidden">
+                    <div class="progress-container">
+                        <div id="progress-bar" class="progress-bar"></div>
+                    </div>
+                    <p id="progress-text" class="progress-info">Подготовка...</p>
+                    <div id="download-link" class="download-link-container"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- Включение модальных окон -->
+{% include "modals.html" %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Адаптация текстового поля
+    const textArea = document.getElementById('message-input');
+    textArea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+    });
+
+    // Инициализация модулей
+    if(typeof YouTube !== 'undefined') YouTube.init();
+    if(typeof Files !== 'undefined') Files.init();
+    if(typeof Messages !== 'undefined') Messages.init();
+});
+</script>
+<svg style="display: none;">
+    <symbol id="copy-icon" viewBox="0 0 24 24">
+        <path d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12V1Z"/>
+    </symbol>
+    <symbol id="download-icon" viewBox="0 0 24 24">
+        <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7l7-7z"/>
+    </symbol>
+</svg>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}MakarTXT - Файлы и сообщения{% endblock %}
+
+{% block content %}
+    <!-- Шапка приложения -->
+    <header class="app-header">
+        <h1>MakarTXT</h1>
+        <div class="header-buttons">
+            <button id="history-btn" class="header-btn">История</button>
+            <button id="files-btn" class="header-btn active">Файлы</button>
+        </div>
+    </header>
+
+    <!-- Основное содержимое -->
+    <main class="content-area">
+        <!-- Блок сообщений -->
+        <div id="history-panel" class="panel hidden">
+            <div class="messages-container" id="messages-container">
+                <!-- Сообщения будут добавляться динамически -->
+            </div>
+        </div>
+
+        <!-- Блок файлов -->
+        <div id="files-panel" class="panel">
+            <div class="file-actions">
+                <button id="refresh-files" class="action-btn">Обновить</button>
+                <input type="file" id="file-input" multiple style="display: none;">
+                <button id="upload-btn" class="action-btn">Загрузить</button>
+            </div>
+            <div class="files-list" id="files-list">
+                <!-- Файлы будут добавляться динамически -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Нижняя панель ввода -->
+    <footer class="input-area">
+        <div id="text-input-container">
+            <input type="text" id="message-input" placeholder="Введите сообщение...">
+            <button id="send-btn">Отправить</button>
+        </div>
+    </footer>
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div id="confirm-modal" class="modal hidden">
+        <div class="modal-content">
+            <p>Вы уверены, что хотите удалить этот файл?</p>
+            <div class="modal-buttons">
+                <button id="confirm-delete">Да</button>
+                <button id="cancel-delete">Отмена</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}  <!-- Подключает скрипты из base.html -->
+    <script src="/static/chat/js/youtube.js"></script>
+    <script>
+        // Загрузка конфигурации
+        window.AppConfig = JSON.parse(document.getElementById('app-config').textContent);
+        
+        // Fallback для Socket.io
+        if (typeof io === 'undefined') {
+            console.error('Socket.io не загружен!');
+            const script = document.createElement('script');
+            script.src = "/static/chat/js/socket.io.fallback.js";
+            document.body.appendChild(script);
+        }
+    </script>
+{% endblock %}

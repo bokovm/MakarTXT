@@ -1,0 +1,37 @@
+<!-- Модальное окно истории -->
+<div id="history-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>История записей</h2>
+            <button class="close-btn">&times;</button>
+        </div>
+        <div class="history-list">
+            <!-- Динамический контент -->
+        </div>
+    </div>
+</div>
+
+<svg style="display: none;">
+    <!-- Existing icons -->
+    <symbol id="copy-icon" viewBox="0 0 24 24">
+      <path d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12V1Z"/>
+    </symbol>
+    <symbol id="download-icon" viewBox="0 0 24 24">
+      <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7l7-7z"/>
+    </symbol>
+  </svg>
+
+<!-- Модальное окно загрузки файлов -->
+<div id="upload-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Загрузка файлов</h3>
+            <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="file" id="file-input" multiple>
+        </div>
+    </div>
+</div>
