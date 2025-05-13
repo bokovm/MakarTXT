@@ -1,0 +1,29 @@
+# Основные зависимости
+flask==2.2.5
+werkzeug==2.2.3
+flask-socketio==5.3.6
+flask-sqlalchemy==3.0.3
+python-dotenv==0.21.0
+eventlet==0.33.3
+
+# Для работы с YouTube
+yt-dlp==2023.11.16
+requests==2.31.0
+
+# Для Telegram бота
+python-telegram-bot==20.3
+
+# Для буфера обмена
+pyperclip==1.8.2
+pywin32==306 ; sys_platform == 'win32'
+
+# Дополнительные утилиты
+user-agents==2.2.0
+greenlet==3.0.3
+
+# WebSocket и Socket.IO
+python-engineio==4.5.1
+python-socketio==5.8.0
+
+# Для работы с базой данных
+sqlalchemy==2.0.23

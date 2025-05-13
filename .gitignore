@@ -1,0 +1,5 @@
+.env
+instance/
+logs/
+youtube_downloads/
+uploads/
