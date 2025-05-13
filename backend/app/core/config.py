@@ -23,6 +23,15 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SOCKETIO_ASYNC_MODE = 'eventlet'
     JWT_EXP_HOURS = 24
+    
+    # Новые параметры
+    ALLOWED_COMMANDS = ['ls', 'dir', 'cp', 'mv']  # Из yaml
+    WHISPER_API_KEY = os.getenv('WHISPER_API_KEY')
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    
+    # Безопасность
+    MAX_COMMAND_LENGTH = 100
+    COMMAND_TIMEOUT = 10  # seconds
 
     # Пути
     BASE_DIR = Path(__file__).parent.parent
@@ -76,6 +85,9 @@ class Config:
         
         for directory in required_dirs:
             directory.mkdir(parents=True, exist_ok=True)
+            
+        from .modules.system import init_system
+        init_system(app)
 
 class DevelopmentConfig(Config):
     """Конфигурация для разработки"""
