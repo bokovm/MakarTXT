@@ -28,6 +28,11 @@ class FileService:
             return current_app.config['UPLOAD_FOLDER']
         
     @classmethod
+    def search_history(cls, search_term):
+        return [f for f in cls.get_history_files() 
+                if search_term.lower() in f['content'].lower()]
+        
+    @classmethod
     def get_history_files(cls) -> List[dict]:
         upload_folder = cls.get_upload_folder()
         logger.info(f"Checking history in: {upload_folder}")
@@ -158,3 +163,29 @@ class FileService:
             logger.error(f"List files error: {str(e)}")
         
         return files
+    
+class FileProcessor:
+    @staticmethod
+    def handle_upload(file_stream, filename):
+        sanitized_name = FileService.sanitize_filename(filename)
+        save_path = Path(current_app.config['UPLOAD_FOLDER']) / sanitized_name
+        
+        # Стриминговая загрузка
+        with save_path.open('wb') as f:
+            while True:
+                chunk = file_stream.read(4096)
+                if not chunk:
+                    break
+                f.write(chunk)
+        
+        FileProcessor.generate_preview(save_path)
+        return sanitized_name
+
+    @staticmethod
+    def generate_preview(file_path):
+        if file_path.suffix.lower() in ['.jpg', '.png', '.jpeg']:
+            # Генерация превью для изображений
+            from PIL import Image
+            with Image.open(file_path) as img:
+                img.thumbnail((300, 300))
+                img.save(f'{file_path}_preview.jpg')

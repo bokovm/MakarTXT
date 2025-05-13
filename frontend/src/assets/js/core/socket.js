@@ -18,3 +18,23 @@ export function setupSocket(app) {
     console.log('Socket disconnected')
   })
 }
+
+export function setupProgressHandlers(socket) {
+  socket.on('download_progress', (data) => {
+    const progressBar = document.querySelector(`#progress-${data.task_id}`);
+    if (progressBar) {
+      progressBar.style.width = `${Math.round((data.current/data.total)*100)}%`;
+    }
+
+    socket.emit('get_progress', taskId);
+    
+    socket.on('progress_update', (data) => {
+        const progressBar = document.getElementById('progress-bar');
+        progressBar.style.width = `${data.progress}%`;
+    });
+    
+    socket.on('download_complete', (data) => {
+        showToast(`Файл ${data.filename} готов!`);
+    });
+  });
+}

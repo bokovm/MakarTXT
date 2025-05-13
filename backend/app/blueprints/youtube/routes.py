@@ -7,6 +7,8 @@ from app.core.exceptions import YouTubeDownloadError
 from app import socketio
 import re
 
+from backend.app.tasks import download_youtube_video
+
 youtube_bp = Blueprint('youtube', __name__)
 
 @youtube_bp.route('/info')
@@ -63,6 +65,7 @@ def youtube_search():
 def download_video():
     try:
         data = request.get_json()
+        task = download_youtube_video.delay(data['url'], data['format'])
         url = data.get('url', '').strip()
         
         if not url or not YouTubeService.validate_url(url):

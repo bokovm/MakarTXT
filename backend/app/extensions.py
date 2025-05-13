@@ -1,13 +1,14 @@
-# backend/app/extensions.py
-from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
+from .socket_handlers import ChatNamespace, ProgressNamespace
 
-db = SQLAlchemy()
-socketio = SocketIO()
+socketio = SocketIO(cors_allowed_origins="*")
 
-def init_extensions(app):
-    db.init_app(app)
-    socketio.init_app(app,
-        cors_allowed_origins="*",
-        async_mode='eventlet'
+def init_socketio(app):
+    socketio.init_app(
+        app,
+        async_mode='eventlet',
+        logger=True,
+        engineio_logger=False
     )
+    socketio.on_namespace(ChatNamespace('/chat'))
+    socketio.on_namespace(ProgressNamespace('/progress'))

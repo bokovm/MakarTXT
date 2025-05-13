@@ -20,6 +20,8 @@ def index():
 @chat_bp.route('/api/history')
 def get_history():
     try:
+        search_query = request.args.get('q', '')
+        files = FileService.search_history(search_query)
         files = FileService.get_history_files()
         return jsonify([{
             'filename': f.name,
@@ -64,6 +66,7 @@ def upload_file():
 
     try:
         filename = FileService.sanitize_filename(file.filename)
+        filename = FileService.save_uploaded_file(file)
         file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
         return jsonify(success=True, filename=filename)
     except Exception as e:
