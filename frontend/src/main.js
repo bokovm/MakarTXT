@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import App from './App.vue'
+import App from '@/App.vue' 
 import router from './router'
 import { initTheme } from '@/assets/js/core/theme.js'
 import { setupSocket } from '@/assets/js/core/socket.js'

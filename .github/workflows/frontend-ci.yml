@@ -1,0 +1,46 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+env:
+  DOCKERHUB_USER: ${{ secrets.DOCKERHUB_BOKOVM }}
+  IMAGE_NAME: your-dockerhub-username/assistant-frontend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check file structure
+      run: |
+        ls -l src/
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build project
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ env.DOCKERHUB_BOKOVM }}/assistant-frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

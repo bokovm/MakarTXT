@@ -1,11 +1,11 @@
-import socket
 import os
-import asyncio
 import logging
+import asyncio
+import socket
 import requests
-import re
-from threading import Thread
+import threading
 from pathlib import Path
+from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -15,107 +15,89 @@ from telegram.ext import (
     CallbackQueryHandler,
     filters
 )
-from dotenv import load_dotenv
 from app import create_app
-from functools import wraps
-from flask import has_app_context, current_app
-from app.services.file_service import FileService  # Импорт сервиса
+from app.services.file_service import FileService
+from dotenv import load_dotenv
 
 # ======================
-# НАСТРОЙКИ
+# ИНИЦИАЛИЗАЦИЯ
 # ======================
 load_dotenv(Path(__file__).parent.parent / '.env')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8080/api')
 
-# Инициализация Flask
+# Глобальные переменные
+application = None
+bot_thread = None
+event_loop = None
+
+# Инициализация Flask app context
 flask_app = create_app()
 
 # Настройка логгера
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
 # ======================
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # ======================
-def get_local_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception as e:
-        logger.error(f"IP detection error: {str(e)}")
-        return "localhost"
-    
 def get_frontend_url():
-    ip = get_local_ip()
-    port = os.getenv("FRONTEND_PORT", "3000")  # Порт из .env или 3000 по умолчанию
-    return f"http://{ip}:{port}"
+    try:
+        ip = socket.gethostbyname(socket.gethostname())
+        return f"http://{ip}:{os.getenv('FRONTEND_PORT', '3000')}"
+    except Exception as e:
+        logger.error(f"Ошибка получения IP: {str(e)}")
+        return "http://localhost:3000"
 
 def ensure_flask_context(func):
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not has_app_context():
-            with flask_app.app_context():
-                return await func(update, context)
-        return await func(update, context)
+        with flask_app.app_context():
+            return await func(update, context)
     return wrapper
-
-def get_upload_folder():
-    return current_app.config['UPLOAD_FOLDER']
 
 # ======================
 # КОМАНДЫ БОТА
 # ======================
+@ensure_flask_context
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start"""
     frontend_url = get_frontend_url()
-    
     message = (
-        "🌐 *Доступ к веб-интерфейсу:*\n"
+        "🌐 *Веб-интерфейс:*\n"
         f"[{frontend_url}]({frontend_url})\n\n"
-        "📋 *Доступные команды:*\n"
+        "📋 *Команды:*\n"
         "• `/save текст` - Сохранить текст\n"
         "• `/history` - История файлов\n"
-        "• Отправьте файл для сохранения\n"
-        "• Используйте кнопки для управления"
+        "• Отправьте файл для сохранения"
     )
-
-    await update.message.reply_text(
-        message,
-        parse_mode='Markdown',
-        disable_web_page_preview=True
-    )
+    await update.message.reply_text(message, parse_mode='Markdown')
 
 @ensure_flask_context
-async def save_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def save_text_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /save"""
     try:
-        text = ' '.join(context.args).strip()
+        text = ' '.join(context.args)
         if not text:
-            await update.message.reply_text("❌ Введите текст после команды /save")
-            return
-
+            return await update.message.reply_text("❌ Укажите текст для сохранения")
+        
         response = requests.post(
             f"{API_BASE_URL}/save_text",
             json={"text": text},
-            timeout=5
+            timeout=10
         )
-
+        
         if response.status_code == 200:
-            await update.message.reply_text("✅ Текст сохранен!")
+            await update.message.reply_text("✅ Текст сохранен и скопирован в буфер")
         else:
             await update.message.reply_text(f"❌ Ошибка: {response.text}")
-
+            
     except Exception as e:
-        logger.error(f"Save error: {str(e)}")
+        logger.error(f"Ошибка сохранения текста: {str(e)}")
         await update.message.reply_text("⚠️ Ошибка сервера")
 
 @ensure_flask_context
 async def get_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получение истории файлов"""
     try:
         response = requests.get(f"{API_BASE_URL}/history", timeout=5)
         if response.status_code != 200:
@@ -144,29 +126,17 @@ async def get_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"History error: {str(e)}")
         await update.message.reply_text("⚠️ Ошибка сервера")
 
-# ======================
-# ОБРАБОТЧИКИ ФАЙЛОВ И КНОПОК
-# ======================
 @ensure_flask_context
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик загрузки файлов"""
     try:
-        # Определяем тип контента
-        if update.message.sticker:
-            file = await update.message.sticker.get_file()
-            ext = '.webp'  # Большинство стикеров в WEBP
-            if update.message.sticker.is_animated:
-                ext = '.tgs'  # Анимированные стикеры
-            elif update.message.sticker.is_video:
-                ext = '.webm'  # Видеостикеры
-            filename = f"sticker_{update.message.message_id}{ext}"
-        else:
-            file = await update.message.effective_attachment.get_file()
-            filename = FileService.sanitize_filename(update.message.effective_attachment.file_name)
+        file = await update.message.effective_attachment.get_file()
+        filename = FileService.sanitize_filename(
+            update.message.effective_attachment.file_name
+        )
         
-        # Скачивание файла
         file_bytes = await file.download_as_bytearray()
         
-        # Сохранение через API
         response = requests.post(
             f"{API_BASE_URL}/files/upload",
             files={'file': (filename, file_bytes)},
@@ -174,25 +144,27 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         if response.status_code == 200:
-            await update.message.reply_text(f"✅ Стикер сохранен!\nИмя: {filename}" 
-                                          if update.message.sticker 
-                                          else f"✅ Файл сохранен!\nИмя: {filename}")
+            await update.message.reply_text(f"✅ Файл сохранен: {filename}")
         else:
             await update.message.reply_text(f"❌ Ошибка: {response.text}")
 
     except Exception as e:
-        logger.error(f"File upload error: {str(e)}")
+        logger.error(f"Ошибка загрузки файла: {str(e)}")
         await update.message.reply_text("⚠️ Ошибка загрузки файла")
 
+# ======================
+# ОБРАБОТЧИКИ КНОПОК
+# ======================
 @ensure_flask_context
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик inline-кнопок"""
     query = update.callback_query
     await query.answer()
     
     try:
         action, filename = query.data.split(':')
         filename = FileService.sanitize_filename(filename)
-        upload_folder = get_upload_folder()
+        upload_folder = flask_app.config['UPLOAD_FOLDER']
         filepath = Path(upload_folder) / filename
 
         if action == 'download':
@@ -217,73 +189,80 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return await query.message.reply_text("❌ Ошибка копирования")
             
             content = response.json().get('content', '')
-            # Кроссплатформенное копирование
-            if os.name == 'posix':
-                os.system(f'echo "{content}" | xclip -selection clipboard')
-            else:
-                os.system(f'echo {content} | clip')
-            
+            FileService.copy_to_clipboard(content)
             await query.message.reply_text("✅ Текст скопирован в буфер")
 
     except Exception as e:
-        logger.error(f"Button error: {str(e)}")
+        logger.error(f"Ошибка обработки кнопки: {str(e)}")
         await query.message.reply_text("⚠️ Ошибка обработки запроса")
 
 # ======================
-# ЗАПУСК БОТА
+# УПРАВЛЕНИЕ БОТОМ
 # ======================
 def run_bot():
-    with flask_app.app_context():
-        test_files = FileService.get_history_files()
-        logger.info(f"Test history files: {test_files}")
-        logger.info(f"Upload folder: {current_app.config['UPLOAD_FOLDER']}")
-    """Основная функция запуска бота с обработкой event loop"""
+    """Основная функция запуска бота"""
+    global application, event_loop
+    
     try:
-        # Создаем новый event loop для этого потока
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        event_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(event_loop)
         
         application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         
         # Регистрация обработчиков
         handlers = [
             CommandHandler("start", start),
-            CommandHandler("help", start),
-            CommandHandler("save", save_text),
+            CommandHandler("save", save_text_command),
             CommandHandler("history", get_history),
-            MessageHandler(filters.Document.ALL | filters.PHOTO | filters.VIDEO | filters.Sticker.ALL, handle_file),
+            MessageHandler(filters.Document.ALL, handle_file),
             CallbackQueryHandler(button_handler)
         ]
         
         application.add_handlers(handlers)
         
-        logger.info("Запуск бота с новым event loop")
+        logger.info("Бот запущен")
         application.run_polling(
             drop_pending_updates=True,
-            close_loop=False  # Важно для работы в отдельном потоке
+            close_loop=False
         )
     except Exception as e:
-        logger.error(f"Ошибка в run_bot: {str(e)}")
+        logger.error(f"Ошибка бота: {str(e)}")
         raise
 
 def start_bot():
     """Запуск бота в отдельном потоке"""
+    global bot_thread
+    
     try:
-        # Настройка asyncio для Windows
         if os.name == 'nt':
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy()
+            )
             
-        bot_thread = Thread(
+        bot_thread = threading.Thread(
             target=run_bot,
             daemon=True,
-            name="TelegramBotThread"
+            name="TelegramBot"
         )
         bot_thread.start()
-        logger.info("Telegram бот запущен в отдельном потоке")
+        logger.info("Бот запущен в отдельном потоке")
     except Exception as e:
         logger.error(f"Ошибка запуска бота: {str(e)}")
         raise
 
+def stop_bot():
+    """Остановка бота"""
+    global application, bot_thread
+    
+    try:
+        if application:
+            application.stop()
+            logger.info("Бот остановлен")
+        if bot_thread and bot_thread.is_alive():
+            bot_thread.join(timeout=5)
+    except Exception as e:
+        logger.error(f"Ошибка остановки бота: {str(e)}")
+
 if __name__ == "__main__":
-    # Для прямого запуска бота (без Flask)
-    run_bot()
+    logging.basicConfig(level=logging.INFO)
+    start_bot()

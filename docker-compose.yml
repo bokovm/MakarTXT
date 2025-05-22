@@ -5,12 +5,51 @@ services:
     build: ./backend
     ports:
       - "8080:8080"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/youtube_downloads:/app/youtube_downloads
+      - ./backend/logs:/app/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority
     environment:
       - FLASK_ENV=production
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
 
   frontend:
     build: ./frontend
     ports:
-      - "5173:80"
+      - "3000:80"
     depends_on:
       - backend
+    networks:
+      - app-network
+
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: assistant
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d assistant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:
+    driver: bridge

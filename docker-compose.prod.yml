@@ -1,0 +1,37 @@
+
+services:
+  backend:
+    image: your-dockerhub-username/assistant-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db:5432/assistant
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: your-dockerhub-username/assistant-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+
+  db:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: assistant
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d assistant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

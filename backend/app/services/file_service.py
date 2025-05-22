@@ -11,7 +11,6 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-
 class FileService:
     _app = None
 
@@ -19,8 +18,8 @@ class FileService:
     def init_app(cls, app):
         cls._app = app
         upload_folder = app.config['UPLOAD_FOLDER']
-        os.makedirs(upload_folder, exist_ok=True)  # Создаем папку при запуске
-        logger.info(f"Upload folder: {upload_folder}")
+        os.makedirs(upload_folder, exist_ok=True)
+        logger.info(f"Upload folder initialized: {upload_folder}")
 
     @classmethod
     def get_upload_folder(cls):
@@ -30,12 +29,8 @@ class FileService:
     @classmethod
     def get_history_files(cls) -> List[dict]:
         upload_folder = cls.get_upload_folder()
-        logger.info(f"Checking history in: {upload_folder}")
-        
         try:
             files = list(Path(upload_folder).glob('*.txt'))
-            logger.info(f"Found {len(files)} text files")
-            
             history = []
             for file_path in files:
                 try:
@@ -48,10 +43,9 @@ class FileService:
                     })
                 except Exception as e:
                     logger.error(f"Error reading {file_path}: {str(e)}")
-            
             return sorted(history, key=lambda x: x['created'], reverse=True)
         except Exception as e:
-            logger.error(f"History error: {str(e)}", exc_info=True)
+            logger.error(f"History error: {str(e)}")
             return []
 
     @classmethod
@@ -69,36 +63,29 @@ class FileService:
             filepath = os.path.join(upload_folder, filename)
             
             file.save(filepath)
-            logger.info(f"File saved: {filepath}")
-
+            
             if filename.lower().endswith('.txt'):
                 cls._open_file_in_thread(filepath)
                 cls._copy_to_clipboard(Path(filepath).read_text(encoding='utf-8'))
 
             return {'success': True, 'filename': filename}
         except Exception as e:
-            logger.error(f"Upload error: {str(e)}", exc_info=True)
+            logger.error(f"Upload error: {str(e)}")
             raise
 
     @classmethod
     def save_text(cls, text: str):
         try:
-            # Получаем папку из конфига
             upload_folder = cls._app.config['UPLOAD_FOLDER']
             os.makedirs(upload_folder, exist_ok=True)
 
-            # Генерируем имя файла
             filename = f"text_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
             filepath = os.path.join(upload_folder, filename)
 
-            # Сохраняем файл
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(text)
 
-            # Копируем в буфер
             cls._copy_to_clipboard(text)
-
-            # Открываем файл
             cls._open_file_in_thread(filepath)
 
             return {"status": "success", "path": filepath}
@@ -112,16 +99,28 @@ class FileService:
             import pyperclip
             pyperclip.copy(text)
             return True
-        except:
+        except Exception as e:
+            logger.error(f"Pyperclip error: {str(e)}")
             try:
-                import win32clipboard
-                win32clipboard.OpenClipboard()
-                win32clipboard.EmptyClipboard()
-                win32clipboard.SetClipboardText(text)
-                win32clipboard.CloseClipboard()
-                return True
-            except Exception as e:
-                logger.error(f"Clipboard error: {str(e)}")
+                if platform.system() == 'Linux':
+                    subprocess.run(
+                        ['xclip', '-selection', 'clipboard'],
+                        input=text.encode('utf-8'),
+                        check=True
+                    )
+                    return True
+                elif platform.system() == 'Windows':
+                    import win32clipboard
+                    win32clipboard.OpenClipboard()
+                    win32clipboard.EmptyClipboard()
+                    win32clipboard.SetClipboardText(text)
+                    win32clipboard.CloseClipboard()
+                    return True
+                else:
+                    logger.error("Unsupported platform for clipboard")
+                    return False
+            except Exception as sub_e:
+                logger.error(f"Clipboard fallback error: {str(sub_e)}")
                 return False
 
     @classmethod
@@ -143,9 +142,9 @@ class FileService:
     def list_files(cls) -> List[Dict]:
         upload_folder = cls.get_upload_folder()
         files = []
-        
         try:
-            for f in sorted(os.listdir(upload_folder), key=lambda x: os.path.getctime(os.path.join(upload_folder, x))):
+            for f in sorted(os.listdir(upload_folder), 
+                           key=lambda x: os.path.getctime(os.path.join(upload_folder, x))):
                 full_path = os.path.join(upload_folder, f)
                 if os.path.isfile(full_path):
                     files.append({
@@ -154,7 +153,7 @@ class FileService:
                         "size": os.path.getsize(full_path),
                         "created": datetime.fromtimestamp(os.path.getctime(full_path))
                     })
+            return files
         except Exception as e:
             logger.error(f"List files error: {str(e)}")
-        
-        return files
+            return []
